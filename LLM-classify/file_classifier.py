@@ -9,7 +9,7 @@ import torch
 import numpy as np
 from transformers import AutoModel, AutoTokenizer
 
-from model_manager import ALL_MODELS, is_model_downloaded
+from model_manager import ALL_MODELS, is_model_downloaded, get_model_local_path
 
 
 def load_embedding_model(model_key: str) -> tuple:
@@ -23,19 +23,18 @@ def load_embedding_model(model_key: str) -> tuple:
             f"模型 {model_key} 尚未下载，请先运行: python model_manager.py download {model_key}"
         )
 
-    model_name = ALL_MODELS[model_key]["repo"]
-    print(f"[加载 Embedding 模型] {model_name} (从本地缓存) ...")
+    local_path = str(get_model_local_path(model_key))
+    print(f"[加载 Embedding 模型] {model_key} (从 {local_path}) ...")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(local_path, trust_remote_code=True)
     model = AutoModel.from_pretrained(
-        model_name,
+        local_path,
         torch_dtype=torch.float16,
         device_map="auto",
         trust_remote_code=True,
-        local_files_only=True,
     )
     model.eval()
-    print(f"[Embedding 模型就绪] {model_name}")
+    print(f"[Embedding 模型就绪] {model_key}")
     return model, tokenizer
 
 

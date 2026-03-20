@@ -3,3 +3,4 @@ transformers>=4.46.0
 numpy>=1.24.0
 accelerate>=0.25.0
 huggingface_hub>=0.20.0
+modelscope>=1.10.0

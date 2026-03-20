@@ -5,7 +5,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from model_manager import ALL_MODELS, is_model_downloaded
+from model_manager import ALL_MODELS, is_model_downloaded, get_model_local_path
 
 SYSTEM_PROMPT = """你是一个文件分类专家。你的任务是根据给定的文件名列表，分析这些文件可能涉及的内容领域，
 然后提取出最相关的 10 个主题分类。
@@ -34,19 +34,18 @@ def load_model(model_key: str) -> tuple:
             f"模型 {model_key} 尚未下载，请先运行: python model_manager.py download {model_key}"
         )
 
-    model_name = ALL_MODELS[model_key]["repo"]
-    print(f"[加载模型] {model_name} (从本地缓存) ...")
+    local_path = str(get_model_local_path(model_key))
+    print(f"[加载模型] {model_key} (从 {local_path}) ...")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(local_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        local_path,
         torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
-        local_files_only=True,
     )
     model.eval()
-    print(f"[模型就绪] {model_name}")
+    print(f"[模型就绪] {model_key}")
     return model, tokenizer
 
 
