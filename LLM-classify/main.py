@@ -17,42 +17,42 @@ from topic_extractor import extract_topics, load_model
 from file_classifier import classify_files, load_embedding_model
 from model_manager import ALL_MODELS, get_downloaded_models
 
+# ============================================================
+# 在这里修改 System Prompt，控制 LLM 如何提取分类主题
+# ============================================================
+SYSTEM_PROMPT = """你是一个文件分类专家。你的任务是根据给定的文件名列表，分析这些文件可能涉及的内容领域，
+然后提取出最相关的 10 个主题分类。
+
+要求：
+1. 主题应该具有区分度，不要太宽泛也不要太具体
+2. 主题应该能覆盖大部分文件
+3. 每个主题用简短的中文词语表示（2-6个字）
+4. 严格输出 JSON 格式，格式为：{"topics": ["主题1", "主题2", ...]}
+5. 只输出 JSON，不要输出任何其他内容"""
+# ============================================================
+
 
 def print_results(results: dict, output_file: str | None = None):
-    """格式化输出分类结果。"""
+    """格式化输出分类结果（只显示分类名称和文件数量）。"""
     classification = results["classification"]
     details = results["details"]
     sorted_topics = sorted(classification.items(), key=lambda x: len(x[1]), reverse=True)
+    total = len(details)
 
     lines = []
     lines.append("=" * 60)
-    lines.append("分类概览")
+    lines.append("分类结果")
     lines.append("=" * 60)
 
     for topic, files in sorted_topics:
         count = len(files)
-        bar = "█" * count
-        lines.append(f"  【{topic}】{count} 个文件  {bar}")
+        pct = count / total * 100 if total > 0 else 0
+        bar = "█" * int(pct / 2)
+        lines.append(f"  【{topic}】{count} 个文件 ({pct:.1f}%)  {bar}")
 
-    lines.append(f"\n  总计: {len(details)} 个文件，{len(classification)} 个主题")
-
-    lines.append("\n" + "=" * 60)
-    lines.append("分类详情")
+    lines.append("-" * 60)
+    lines.append(f"  总计: {total} 个文件，{len(classification)} 个主题")
     lines.append("=" * 60)
-
-    for topic, files in sorted_topics:
-        lines.append(f"\n📂 【{topic}】({len(files)} 个文件)")
-        lines.append("-" * 40)
-        if files:
-            for f in files:
-                score = next(
-                    (d["score"] for d in details if d["filename"] == f), 0
-                )
-                lines.append(f"  {f}  (相似度: {score:.4f})")
-        else:
-            lines.append("  （无文件归入此分类）")
-
-    lines.append("\n" + "=" * 60)
 
     output = "\n".join(lines)
     print(output)
@@ -165,6 +165,7 @@ def main():
             model_key=args.llm,
             model=llm_model,
             tokenizer=llm_tokenizer,
+            system_prompt=SYSTEM_PROMPT,
         )
         del llm_model, llm_tokenizer
         import torch

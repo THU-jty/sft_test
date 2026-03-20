@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from model_manager import ALL_MODELS, is_model_downloaded, get_model_local_path
 
-SYSTEM_PROMPT = """你是一个文件分类专家。你的任务是根据给定的文件名列表，分析这些文件可能涉及的内容领域，
+DEFAULT_SYSTEM_PROMPT = """你是一个文件分类专家。你的任务是根据给定的文件名列表，分析这些文件可能涉及的内容领域，
 然后提取出最相关的 10 个主题分类。
 
 要求：
@@ -55,16 +55,19 @@ def extract_topics(
     model=None,
     tokenizer=None,
     max_new_tokens: int = 512,
+    system_prompt: str | None = None,
 ) -> list[str]:
     """从文件名列表中提取 10 个主题。
 
-    可以传入已加载的 model/tokenizer 以避免重复加载。
+    Args:
+        system_prompt: 自定义 System Prompt，为 None 时使用内置默认值
     """
     if model is None or tokenizer is None:
         model, tokenizer = load_model(model_key)
 
+    prompt = system_prompt if system_prompt is not None else DEFAULT_SYSTEM_PROMPT
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": build_user_prompt(filenames)},
     ]
 
