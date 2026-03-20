@@ -13,8 +13,9 @@ import sys
 from pathlib import Path
 
 from file_scanner import scan_directory
-from topic_extractor import extract_topics, load_model, SUPPORTED_MODELS
-from file_classifier import classify_files, load_embedding_model, SUPPORTED_EMBEDDING_MODELS
+from topic_extractor import extract_topics, load_model
+from file_classifier import classify_files, load_embedding_model
+from model_manager import ALL_MODELS, get_downloaded_models
 
 
 def print_results(results: dict, output_file: str | None = None):
@@ -63,40 +64,59 @@ def print_results(results: dict, output_file: str | None = None):
         print(f"\n[结果已保存到 {output_file}]")
 
 
+def check_available_models():
+    """检查已下载的模型，如果没有可用模型则给出提示。"""
+    llm_models = get_downloaded_models("llm")
+    emb_models = get_downloaded_models("embedding")
+
+    if not llm_models and not emb_models:
+        print("[错误] 没有找到任何已下载的模型。")
+        print("  请先运行以下命令下载模型:")
+        print("  python model_manager.py download qwen3-4b")
+        print("  python model_manager.py download bge-base-zh")
+        print("\n  查看所有可用模型: python model_manager.py list")
+        sys.exit(1)
+
+    return llm_models, emb_models
+
+
 def main():
+    available_llm, available_emb = check_available_models()
+    llm_keys = list(available_llm.keys()) if available_llm else []
+    emb_keys = list(available_emb.keys()) if available_emb else []
+
     parser = argparse.ArgumentParser(
         description="基于 LLM 的文件智能分类工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
+已下载的模型:
+  LLM:       {', '.join(llm_keys) if llm_keys else '(无，需先下载)'}
+  Embedding: {', '.join(emb_keys) if emb_keys else '(无，需先下载)'}
+
 使用示例:
-  # 使用默认模型 (Qwen3-4B + BGE-base-zh-v1.5)
   python main.py /path/to/your/files
+  python main.py /path/to/your/files --llm qwen3-8b --embedding qwen3-0.6b
+  python main.py /path/to/your/files --topics "编程,文档,图片" --output result.json
 
-  # 指定推理模型为 Qwen3-8B
-  python main.py /path/to/your/files --llm qwen3-8b
-
-  # 指定 Embedding 模型为 Qwen3-0.6B
-  python main.py /path/to/your/files --embedding qwen3-0.6b
-
-  # 不递归扫描子目录，结果保存到文件
-  python main.py /path/to/your/files --no-recursive --output result.json
-
-  # 手动指定主题（跳过 LLM 推理步骤）
-  python main.py /path/to/your/files --topics "编程,设计,文档,音乐,视频,图片,数据,配置,日志,测试"
+模型管理:
+  python model_manager.py list              # 查看所有模型
+  python model_manager.py download qwen3-4b # 下载指定模型
         """,
     )
     parser.add_argument("directory", help="要扫描的文件目录路径")
-    parser.add_argument(
-        "--llm",
-        choices=list(SUPPORTED_MODELS.keys()),
-        default="qwen3-4b",
-        help="用于提取主题的 LLM 模型 (默认: qwen3-4b)",
-    )
+
+    if llm_keys:
+        parser.add_argument(
+            "--llm",
+            choices=llm_keys,
+            default=llm_keys[0],
+            help=f"用于提取主题的 LLM 模型 (默认: {llm_keys[0]})",
+        )
     parser.add_argument(
         "--embedding",
-        choices=list(SUPPORTED_EMBEDDING_MODELS.keys()),
-        default="bge-base-zh",
-        help="用于文件分类的 Embedding 模型 (默认: bge-base-zh)",
+        choices=emb_keys if emb_keys else None,
+        default=emb_keys[0] if emb_keys else None,
+        help=f"用于文件分类的 Embedding 模型 (默认: {emb_keys[0] if emb_keys else 'N/A'})",
     )
     parser.add_argument(
         "--no-recursive",
@@ -132,6 +152,12 @@ def main():
         topics = [t.strip() for t in args.topics.split(",") if t.strip()]
         print(f"\n[Step 2] 使用手动指定的主题: {topics}")
     else:
+        if not llm_keys:
+            print("[错误] 没有已下载的 LLM 模型，无法自动提取主题。")
+            print("  请用 --topics 手动指定主题，或先下载 LLM 模型:")
+            print("  python model_manager.py download qwen3-4b")
+            sys.exit(1)
+
         print(f"\n[Step 2] 使用 {args.llm} 提取主题 ...")
         llm_model, llm_tokenizer = load_model(args.llm)
         topics = extract_topics(
@@ -140,7 +166,6 @@ def main():
             model=llm_model,
             tokenizer=llm_tokenizer,
         )
-        # 释放 LLM 显存
         del llm_model, llm_tokenizer
         import torch
         torch.cuda.empty_cache()
@@ -152,6 +177,12 @@ def main():
         sys.exit(1)
 
     # Step 3: 文件分类
+    if not emb_keys:
+        print("[错误] 没有已下载的 Embedding 模型，无法进行分类。")
+        print("  请先下载 Embedding 模型:")
+        print("  python model_manager.py download bge-base-zh")
+        sys.exit(1)
+
     print(f"\n[Step 3] 使用 {args.embedding} 进行文件分类 ...")
     emb_model, emb_tokenizer = load_embedding_model(args.embedding)
     results = classify_files(

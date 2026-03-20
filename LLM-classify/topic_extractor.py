@@ -5,10 +5,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-SUPPORTED_MODELS = {
-    "qwen3-4b": "Qwen/Qwen3-4B",
-    "qwen3-8b": "Qwen/Qwen3-8B",
-}
+from model_manager import ALL_MODELS, is_model_downloaded
 
 SYSTEM_PROMPT = """你是一个文件分类专家。你的任务是根据给定的文件名列表，分析这些文件可能涉及的内容领域，
 然后提取出最相关的 10 个主题分类。
@@ -27,21 +24,26 @@ def build_user_prompt(filenames: list[str]) -> str:
 
 
 def load_model(model_key: str) -> tuple:
-    """加载指定的 Qwen3 模型和 tokenizer。"""
-    if model_key not in SUPPORTED_MODELS:
-        raise ValueError(
-            f"不支持的模型: {model_key}，可选: {list(SUPPORTED_MODELS.keys())}"
+    """从本地缓存加载指定的 Qwen3 模型和 tokenizer（不会触发下载）。"""
+    if model_key not in ALL_MODELS or ALL_MODELS[model_key]["type"] != "llm":
+        llm_keys = [k for k, v in ALL_MODELS.items() if v["type"] == "llm"]
+        raise ValueError(f"不支持的 LLM 模型: {model_key}，可选: {llm_keys}")
+
+    if not is_model_downloaded(model_key):
+        raise RuntimeError(
+            f"模型 {model_key} 尚未下载，请先运行: python model_manager.py download {model_key}"
         )
 
-    model_name = SUPPORTED_MODELS[model_key]
-    print(f"[加载模型] {model_name} ...")
+    model_name = ALL_MODELS[model_key]["repo"]
+    print(f"[加载模型] {model_name} (从本地缓存) ...")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
+        local_files_only=True,
     )
     model.eval()
     print(f"[模型就绪] {model_name}")
