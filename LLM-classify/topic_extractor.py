@@ -40,7 +40,7 @@ def load_model(model_key: str) -> tuple:
     tokenizer = AutoTokenizer.from_pretrained(local_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         local_path,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
@@ -56,11 +56,14 @@ def extract_topics(
     tokenizer=None,
     max_new_tokens: int = 512,
     system_prompt: str | None = None,
-) -> list[str]:
+) -> tuple[list[str], str]:
     """从文件名列表中提取 10 个主题。
 
     Args:
         system_prompt: 自定义 System Prompt，为 None 时使用内置默认值
+
+    Returns:
+        (topics, raw_response): 解析后的主题列表 和 模型原始输出文本
     """
     if model is None or tokenizer is None:
         model, tokenizer = load_model(model_key)
@@ -89,7 +92,7 @@ def extract_topics(
     response = tokenizer.decode(new_tokens, skip_special_tokens=True)
     print(f"[模型原始输出]\n{response}\n")
 
-    return parse_topics(response)
+    return parse_topics(response), response
 
 
 def parse_topics(response: str) -> list[str]:

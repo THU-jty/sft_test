@@ -29,7 +29,7 @@ def load_embedding_model(model_key: str) -> tuple:
     tokenizer = AutoTokenizer.from_pretrained(local_path, trust_remote_code=True)
     model = AutoModel.from_pretrained(
         local_path,
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         device_map="auto",
         trust_remote_code=True,
     )
