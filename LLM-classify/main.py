@@ -60,9 +60,16 @@ def print_results(results: dict, output_file: str | None = None):
 
     if output_file:
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        summary = {
+            topic: {"count": len(files), "percentage": f"{len(files) / total * 100:.1f}%"}
+            for topic, files in sorted_topics
+        }
         ordered = {
             "raw_response": results.get("raw_response"),
             "topics": results.get("topics", []),
+            "total_files": total,
+            "total_topics": len(classification),
+            "summary": summary,
             "classification": results["classification"],
             "details": results["details"],
         }
