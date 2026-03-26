@@ -44,6 +44,11 @@ ALL_MODELS = {
         "ms_repo": "Qwen/Qwen3.5-9B",
         "type": "llm",
     },
+    "qwen3-0.6b-llm": {
+        "hf_repo": "Qwen/Qwen3-0.6B",
+        "ms_repo": "Qwen/Qwen3-0.6B",
+        "type": "llm",
+    },
     "qwen3-0.6b": {
         "hf_repo": "Qwen/Qwen3-0.6B",
         "ms_repo": "Qwen/Qwen3-0.6B",
